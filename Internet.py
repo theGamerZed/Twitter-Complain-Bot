@@ -1,3 +1,4 @@
+import pickle
 import email
 from selenium import webdriver
 from selenium.webdriver.common.by import By   
@@ -44,36 +45,35 @@ class InternetSpeedTwitterBot:
     def tweet_the_complain(self):
         self.goto_website("https://www.x.com")
         self.driver.implicitly_wait(5)
-        self.accept_cookies('//*[@id="layers"]/div/div/div/div/div/div[2]/button[1]/div')
-        self.driver.execute_script("window.scrollBy(0, 500)") 
-        try:
-            signin = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div[1]/div/div/div[3]/div[3]/a/div')))
-            signin.click()
-            print(signin.text)
-        except Exception as e:
-            print(f"Error finding sign-in button: {e}") 
-        time.sleep(2)  # Wait for sign-in options to load
-        try:
-            wait = WebDriverWait(self.driver, 15)
-            email_input = wait.until(EC.element_to_be_clickable((By.XPATH, "//input[@name='text' and @type='text']")))
-            email_input.clear()
-            time.sleep(2)  # Small delay to ensure field is ready
-            email_input.send_keys(os.getenv("EMAIL"))
-        except Exception as e:
-            print(f"Error finding email input field: {e}")
-        time.sleep(2)  # Wait for email to be processed and Next button to become clickable
-        try:
-            wait = WebDriverWait(self.driver, 15)
-            next_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//span[normalize-space()='Next']")))
-            next_button.click()
-            print("Next button clicked")
-        except Exception as e:
-            print(f"Error finding Next button: {e}")
-        time.sleep(2)  # Wait for password field to load
-        try:
-            password_input = wait.until(EC.element_to_be_clickable((By.XPATH, "//span[normalize-space()='Password']/ancestor::div//input[@type='password']")))
-            password_input.clear()
-            password_input.send_keys(os.getenv("PASSWORD"))
-            print("Password entered")
-        except Exception as e:
-            print(f"Error finding password input field: {e}")
+        self.accept_cookies("//button[.//span[normalize-space()='Accept all cookies']]")
+
+        with open("x_cookies.pkl", "rb") as f: # Get this from a prior login session, you can use browser dev tools to export cookies or use Selenium to save them after logging in once
+            cookies = pickle.load(f)
+        for cookie in cookies:
+           try:
+                cookie.pop("sameSite", None)
+                cookie.pop("expiry", None)
+                self.driver.add_cookie(cookie)
+           except Exception as e:
+                print(f"Error adding cookie: {e}")
+        self.driver.refresh()
+
+        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, "//a[@href='/home']")))  # confirm login via presence of home link... or use a waiting time to see it manually if you want...
+        print("✅ Logged in via cookies")
+        icon_btn = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.XPATH,"//a[@data-testid='SideNav_NewTweet_Button']")))
+        # self.driver.execute_script("arguments[0].click();", icon_btn) use this if normal click doesn't work it is called javascript click and it can bypass some issues with normal click
+        icon_btn.click()
+        print("Icon button clicked")
+        time.sleep(2)  # Wait for the tweet box to appear
+        tweet_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[@role='textbox' and @contenteditable='true']")))
+        tweet_box.clear()
+        tweet_content = f"Hey Internet Provider[vodafone], why is my internet speed {self.down} Mbps down and {self.up} Mbps up? this is just a python project BTW"
+        tweet_box.send_keys(tweet_content)
+        print("Tweet content entered")
+        time.sleep(2)  # Wait for content to be entered
+        post_btn = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//button[@data-testid='tweetButton']"))) 
+        post_btn.click()
+        print("Tweet posted")
+        print("✅ Complaint tweeted successfully")
+        # onto the next project...
+
